@@ -1,127 +1,205 @@
-# FairScope — AI Fairness Auditor (Backend)
+# FairScope — AI Fairness Auditor
 
-Upload a trained ML model + dataset, get a "case file" style bias audit report
-powered by SHAP explainability + Groq LLM (free).
+> **Every audit becomes a case file — evidence, verdict, and the numbers to defend it.**
 
-## 🚀 Quick Setup
+FairScope is a full-stack AI auditing web app that takes a trained scikit-learn model and its dataset, runs SHAP-based explainability analysis, tests statistical fairness across sensitive features, and delivers a plain-English case file verdict powered by a multi-agent LLM courtroom debate.
 
-### 1. Create virtual environment
-```bash
-cd fairscope
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+---
+
+## 🎬 Demo
+
+> **Live:** _[your-deployment-url]_  
+> Test credentials: `demo@fairscope.io` / `demo1234`
+
+---
+
+## ✨ Features
+
+### 🔍 Evidence Engine
+- **SHAP explainability** — Mean absolute SHAP values reveal which features actually drive predictions
+- **Disparate Impact analysis** — Statistical fairness tests across any sensitive feature (zip code, gender, age, etc.)
+- **Sample predictions table** — Ground truth vs. model output for first 10 rows
+
+### ⚖️ Multi-Agent Courtroom Verdict
+- Three LLM agents debate the model's fairness: **Prosecutor AI**, **Defense AI**, **Judge AI**
+- Powered by **Groq's Llama 3.3 70B** (free, ~200ms latency)
+- Outputs: Verdict (`FAIR` / `POTENTIALLY_BIASED` / `BIASED`), Bias Risk Index (0–100), Key Findings, Mitigation Plan
+
+### 🔬 Cross-Examination (What-If Simulator)
+- Change any feature value and see how the prediction shifts
+- Live SHAP recalculation for the modified scenario
+
+### ⚡ Automated Debiaser
+- One-click inverse-probability demographic re-weighting
+- Retrains a fair scikit-learn model on-the-fly
+- Download the debiased `.pkl` model directly
+
+### 📄 PDF Report Export
+- Full audit report with all findings, downloadable for sharing
+
+### 🔐 Auth & Security
+- Supabase auth with **email OTP verification** (6–8 digit, custom SMTP via Gmail)
+- Protected routes — unverified users cannot access dashboard
+- Password reset flow
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Tech |
+|---|---|
+| **Frontend** | React 18, Vite, Tailwind CSS, Framer Motion, Lucide |
+| **Backend** | FastAPI, Python 3.11, SQLite (SQLAlchemy) |
+| **ML / XAI** | scikit-learn, SHAP, NumPy, pandas |
+| **LLM** | Groq API — `llama-3.3-70b-versatile` |
+| **Auth** | Supabase Auth (email OTP) |
+| **PDF** | ReportLab |
+
+---
+
+## 🗂️ Project Structure
+
+```
+fairscope/
+├── fairscope-frontend/          # React app
+│   └── src/
+│       ├── pages/               # LandingPage, NewAuditPage, AuditResultsPage, HistoryPage
+│       ├── components/
+│       │   ├── auth/            # AuthLayout, ProtectedRoute
+│       │   ├── dashboard/       # EvidenceTab, VerdictTab, CrossExamineTab, DebiasCard, Sidebar
+│       │   └── landing/         # Hero, Navbar, HowItWorks, CaseFilePreview, Features
+│       ├── context/             # AuthContext (Supabase session)
+│       └── lib/                 # api.js (axios), supabaseClient.js
+│
+└── fairscope_backend/
+    └── app/
+        ├── main.py              # FastAPI entry point
+        ├── config.py            # Pydantic settings (.env)
+        ├── routers/             # upload, audit, verdict, simulate, report, debias
+        └── services/
+            ├── explainability_service.py   # SHAP pipeline
+            ├── fairness_metrics.py         # Disparate impact, demographic parity
+            ├── llm_service.py              # Groq multi-agent courtroom
+            ├── debias_service.py           # Re-weighting + retraining
+            └── model_loader.py             # .pkl / .joblib loader
 ```
 
-### 2. Install dependencies
+---
+
+## 🚀 Running Locally
+
+### Prerequisites
+- Python 3.10+
+- Node.js 18+
+- A free [Groq API key](https://console.groq.com)
+- A free [Supabase](https://supabase.com) project
+
+### 1. Clone & Backend Setup
+
 ```bash
-cd backend
+git clone https://github.com/Abdullah-Program/fairscope.git
+cd fairscope/fairscope_backend
+
+python -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Get a FREE Groq API key
-- Go to https://console.groq.com/keys
-- Sign up (free, no credit card)
-- Create an API key
+Create `fairscope_backend/.env`:
 
-### 4. Setup PostgreSQL (local)
-Install PostgreSQL on your machine (postgresql.org/download), then create
-the database:
+```env
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.3-70b-versatile
+DATABASE_URL=sqlite:///./fairscope.db
+UPLOAD_DIR=uploads
+MAX_UPLOAD_SIZE_MB=25
+```
+
 ```bash
-psql postgres
-```
-```sql
-CREATE DATABASE fairscope;
-CREATE USER fairscope_user WITH PASSWORD 'your_password_here';
-GRANT ALL PRIVILEGES ON DATABASE fairscope TO fairscope_user;
-\q
-```
-
-### 5. Setup environment variables
-```bash
-cp .env.example .env
-```
-Open `.env` and fill in:
-```
-GROQ_API_KEY=gsk_your_actual_key_here
-DATABASE_URL=postgresql://fairscope_user:your_password_here@localhost:5432/fairscope
-```
-Make sure the password matches what you set in step 4.
-
-> **Note:** If you skip this step, the app still runs — `llm_service.py` has a
-> rule-based fallback verdict generator so nothing breaks. But for the full
-> "AI-generated report" experience, add the free Groq key.
-
-### 5. Generate a demo model + dataset (optional but recommended)
-From the `fairscope/` root folder:
-```bash
-python generate_sample_model.py
-```
-This creates `ml_examples/loan_approval_model.pkl` and `ml_examples/loan_dataset.csv`
-— a synthetic loan-approval model with an intentionally baked-in bias
-(against `zip_code`) so you have something interesting to detect in the demo.
-
-### 6. Run the backend
-```bash
-cd backend
 uvicorn app.main:app --reload --port 8000
+# API docs → http://localhost:8000/docs
 ```
 
-Backend will be live at: **http://localhost:8000**
-Interactive API docs (Swagger): **http://localhost:8000/docs**
+### 2. Frontend Setup
+
+```bash
+cd fairscope/fairscope-frontend
+npm install
+```
+
+Create `fairscope-frontend/.env`:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+```bash
+npm run dev
+# App → http://localhost:5173
+```
+
+### 3. Supabase Setup
+
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Go to **Auth → Providers → Email** → enable **Confirm email**
+3. _(Optional)_ Set up custom SMTP (Gmail App Password) to customize the OTP email template
+
+### 4. Try it with Sample Data
+
+Don't have a model? Generate one:
+
+```bash
+cd fairscope_backend
+python fairscope/generate_sample_model.py
+# Creates: sample_model.pkl + sample_dataset.csv
+```
+
+Upload both files, set target column to `approved`, and run the audit.
 
 ---
 
-## 🧪 Test it via /docs (before building frontend)
+## 📡 API Reference
 
-1. Open http://localhost:8000/docs
-2. `POST /api/upload/model` — upload `ml_examples/loan_approval_model.pkl` as
-   `model_file`, `ml_examples/loan_dataset.csv` as `dataset_file`,
-   `target_column = approved`. Copy the returned `audit_id`.
-3. `POST /api/audit/analyze/{audit_id}` — paste your audit_id, add
-   `sensitive_features = ["zip_code", "gender"]` as query params.
-4. `POST /api/verdict/generate` — body: `{"audit_id": "your_id"}` — get the
-   AI-generated case file verdict.
-5. `POST /api/simulate/whatif` — body:
-   ```json
-   {"audit_id": "your_id", "modified_row": {"zip_code": 1}}
-   ```
-   See how the prediction changes in real time.
-6. `GET /api/report/{audit_id}/pdf` — download the full PDF report.
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/upload/model` | Upload `.pkl`/`.joblib` + CSV |
+| `POST` | `/api/audit/analyze/{audit_id}` | Run SHAP + fairness metrics |
+| `POST` | `/api/verdict/generate` | LLM multi-agent verdict |
+| `POST` | `/api/simulate/whatif` | What-if feature simulation |
+| `GET` | `/api/report/{audit_id}/pdf` | Download PDF report |
+| `GET` | `/api/report/history` | List past audits |
+| `POST` | `/api/debias/fix/{audit_id}` | Retrain debiased model |
+| `GET` | `/api/debias/download/{audit_id}` | Download debiased `.pkl` |
+
+Full interactive docs at `/docs` (Swagger UI).
 
 ---
 
-## 📂 Project Structure
+## 🌐 Deployment
 
-```
-backend/
-├── app/
-│   ├── main.py              # FastAPI entry point
-│   ├── config.py            # env var loading
-│   ├── routers/              # API endpoints (upload, audit, verdict, simulate, report)
-│   ├── services/              # core logic (SHAP, fairness metrics, Groq LLM calls)
-│   ├── models/schemas.py     # request/response validation
-│   └── database/db.py        # SQLite + in-memory audit cache
-├── requirements.txt
-└── .env.example
+**Frontend → Vercel**
+```bash
+cd fairscope-frontend
+npm run build
+# Deploy dist/ to Vercel, set env vars in Vercel dashboard
 ```
 
-## ⚠️ Known limitations (be upfront about these in your interview!)
+**Backend → Render**  
+Connect the `fairscope_backend` folder, set start command:
+```
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+Add env vars (`GROQ_API_KEY`, etc.) in Render dashboard.
 
-- Model must be a **scikit-learn compatible classifier** with `.predict()`
-  (RandomForest, LogisticRegression, GradientBoosting etc. all work).
-  XGBoost/LightGBM also work if they expose sklearn API.
-- Uses `joblib.load()` which relies on pickle — fine for a personal/demo
-  project, but in production you'd sandbox this (mention this awareness
-  in interviews, it shows security maturity).
-- KernelExplainer (used for non-tree models) is slower — capped dataset
-  sample to 200 rows for speed.
-- In-memory audit cache means restarting the server clears active sessions
-  (metadata history in SQLite survives, but you'd need to re-upload to
-  re-run analysis). Fine for a project demo; mention Redis as the
-  production upgrade path.
+---
 
-## 🔜 Next: Frontend
+## 🤝 Author
 
-This backend exposes everything the React frontend needs — build the
-3-tab dashboard (Evidence / Verdict / Cross-Examination) against these
-endpoints. Ask for the frontend code separately.
+Built by **Abdullah** — aspiring AI Engineer  
+GitHub: [@Abdullah-Program](https://github.com/Abdullah-Program)
+
+---
+
+_Part of a portfolio of full-stack agentic AI projects targeting AI startup internships._

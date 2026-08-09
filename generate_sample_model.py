@@ -7,11 +7,16 @@ in the demo. Run this once before testing the app.
 Usage:
     python generate_sample_model.py
 """
+import sys
+import os
+
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 import joblib
-import os
 
 np.random.seed(42)
 n = 800
@@ -55,8 +60,8 @@ os.makedirs("ml_examples", exist_ok=True)
 joblib.dump(model, "ml_examples/loan_approval_model.pkl")
 df.to_csv("ml_examples/loan_dataset.csv", index=False)
 
-print("✅ Sample model + dataset generated in ml_examples/")
-print(f"   - loan_approval_model.pkl")
-print(f"   - loan_dataset.csv  ({len(df)} rows)")
-print(f"   - Target column: 'approved'")
-print(f"   - Try sensitive_features=['zip_code', 'gender'] when testing /api/audit/analyze")
+print("[+] Sample model + dataset generated in ml_examples/")
+print(f"    - loan_approval_model.pkl")
+print(f"    - loan_dataset.csv  ({len(df)} rows)")
+print(f"    - Target column: 'approved'")
+print(f"    - Sensitive features: ['zip_code', 'gender']")
